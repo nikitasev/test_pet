@@ -1,0 +1,3 @@
+.idea
+deployments/local/db
+deployments/local/redis

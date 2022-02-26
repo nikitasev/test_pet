@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  pet_app:
+    build:
+      context: ../../
+      dockerfile: /deployments/Dockerfile
+    env_file: ../../.env
+    networks:
+      - pet_network
+
+networks:
+  pet_network:
+    external: true

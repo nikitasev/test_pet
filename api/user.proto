@@ -1,0 +1,39 @@
+syntax = "proto3";
+package userapi;
+option go_package = "test_pet/pkg/grpc/userapi";
+
+service UserService {
+  rpc AddUserRequest (AddUserInput) returns (AddUserOutput) {}
+  rpc DeleteUserRequest (DeleteUserInput) returns (DeleteUserOutput) {}
+  rpc GetListRequest (GetListInput) returns (GetListOutput) {}
+}
+
+message AddUserInput {
+  string name = 1;
+}
+
+message AddUserOutput {
+  int64 id = 2;
+}
+
+message DeleteUserInput {
+  int64 id = 1;
+}
+
+message DeleteUserOutput {
+  optional string error = 2;
+}
+
+message GetListInput {
+  optional int32 limit = 1;
+  optional int32 offset = 2;
+}
+
+message GetListOutput {
+  repeated User list = 1;
+}
+
+message User {
+  int64 id = 1;
+  string name = 2;
+}

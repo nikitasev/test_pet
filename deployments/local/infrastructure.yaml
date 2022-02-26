@@ -1,0 +1,50 @@
+version: "3"
+services:
+  db:
+    image: "postgres"
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - pet_db:/var/lib/postgresql/data
+    networks:
+      - pet_network
+    ports:
+      - "5432:5432"
+  redis:
+    image: "redis:alpine"
+    volumes:
+      - ./redis/redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - pet_network
+  zookeeper:
+    image: 'bitnami/zookeeper:latest'
+    ports:
+      - '2181:2181'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: 'bitnami/kafka:latest'
+    ports:
+      - '9092:9092'
+    depends_on:
+      - zookeeper
+  ch_server:
+    image: "yandex/clickhouse-server"
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./db:/var/lib/clickhouse
+    networks:
+      - pet_network
+
+volumes:
+  pet_db:
+  redis:
+  pet_kafka:
+
+networks:
+  pet_network:
+    external: true
