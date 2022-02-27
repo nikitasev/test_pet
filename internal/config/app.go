@@ -15,28 +15,25 @@ type App struct {
 }
 
 type UserDb struct {
-	Dsn    string `envconfig:"USER_DB_DSN"`
-	Driver string `envconfig:"USER_DB_DRIVER"`
+	Dsn string `envconfig:"USER_DB_DSN"`
 }
 
 type EventDb struct {
-	Dsn    string `envconfig:"EVENT_DB_DSN"`
-	Driver string `envconfig:"EVENT_DB_DRIVER"`
+	Dsn string `envconfig:"EVENT_DB_DSN"`
 }
 
 type EventQueue struct {
-	Broker string
-	Topic  string
+	Broker string `envconfig:"EVENT_QUEUE_BROKER"`
+	Topic  string `envconfig:"EVENT_QUEUE_TOPIC"`
 }
 
 type GrpcServer struct {
-	Host string
-	Port string
+	HostPort string `envconfig:"GRPC_HOST_PORT"`
 }
 
 type Cache struct {
-	HostPort             string
-	CacheExpireInSeconds time.Duration
+	HostPort             string        `envconfig:"CACHE_HOST_PORT"`
+	CacheExpireInSeconds time.Duration `envconfig:"CACHE_EXPIRE_IN_SECONDS"`
 }
 
 func NewApp() (App, error) {

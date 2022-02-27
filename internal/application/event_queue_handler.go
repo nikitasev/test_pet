@@ -3,10 +3,12 @@ package application
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"test_pet/internal/infrastructure/persistence"
 	"test_pet/internal/infrastructure/service"
+	"time"
 )
 
 type EventQueueHandler struct {
@@ -15,10 +17,11 @@ type EventQueueHandler struct {
 	logger          *zap.Logger
 }
 
-func NewEventQueueHandler(consumer *kafka.Reader, eventLogStorage *persistence.EventLog) *EventQueueHandler {
+func NewEventQueueHandler(consumer *kafka.Reader, eventLogStorage *persistence.EventLog, logger *zap.Logger) *EventQueueHandler {
 	return &EventQueueHandler{
 		consumer:        consumer,
 		eventLogStorage: eventLogStorage,
+		logger:          logger,
 	}
 }
 
@@ -28,19 +31,28 @@ func (h *EventQueueHandler) HandleQueue(cStop <-chan bool) {
 		case <-cStop:
 			return
 		default:
-			m, err := h.consumer.ReadMessage(context.Background())
-			if err != nil {
-				h.logger.Error("failed reading message from queue", zap.Error(err))
-				continue
-			}
-			var msg service.Message
-			if err := json.Unmarshal(m.Value, &msg); err != nil {
-				h.logger.Error("failed encoding message", zap.Error(err))
-				continue
-			}
-			if err := h.eventLogStorage.Log(msg.UserId, msg.Time); err != nil {
-				h.logger.Error("failed logging event", zap.Error(err))
-			}
+			h.handle()
 		}
+	}
+}
+
+func (h *EventQueueHandler) handle() {
+	d := time.Now().Add(time.Second * 5)
+	ctx, cancel := context.WithDeadline(context.Background(), d)
+	defer cancel()
+	m, err := h.consumer.ReadMessage(ctx)
+	if err != nil {
+		if !errors.Is(context.DeadlineExceeded, err) {
+			h.logger.Error("failed reading message from queue", zap.Error(err))
+		}
+		return
+	}
+	var msg service.Message
+	if err := json.Unmarshal(m.Value, &msg); err != nil {
+		h.logger.Error("failed encoding message", zap.Error(err))
+		return
+	}
+	if err := h.eventLogStorage.Log(msg.UserId, msg.Time); err != nil {
+		h.logger.Error("failed logging event", zap.Error(err))
 	}
 }

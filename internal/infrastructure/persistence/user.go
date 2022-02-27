@@ -22,11 +22,11 @@ func (p *User) GetList(limit, offset int32) ([]entity.User, error) {
 		rows     *sqlx.Rows
 		userList []entity.User
 		user     entity.User
-		query    = "select * from user"
+		query    = `SELECT * FROM "user" WHERE is_deleted = 0`
 	)
 
 	if limit != 0 {
-		query = fmt.Sprintf("select * from user LIMIT %d OFFSET %d", limit, offset)
+		query = fmt.Sprintf(`SELECT * FROM "user" WHERE is_deleted = 0 LIMIT %d OFFSET %d`, limit, offset)
 	}
 
 	if err := p.Db.Ping(); err != nil {
@@ -58,16 +58,14 @@ func (p *User) Add(name string) (int64, error) {
 		return 0, err
 	}
 
-	res, err := p.Db.NamedExec(`INSERT INTO user (name) VALUES (:name)`,
-		map[string]interface{}{
-			"name": name,
-		})
+	var lastInsertId int64
+	err := p.Db.QueryRow(`INSERT INTO "user"(name) VALUES ($1) RETURNING id`, name).Scan(&lastInsertId)
 
 	if err != nil {
 		return 0, err
 	}
 
-	return res.LastInsertId()
+	return lastInsertId, nil
 }
 
 func (p *User) DeleteById(userId int64) error {
@@ -75,7 +73,7 @@ func (p *User) DeleteById(userId int64) error {
 		return err
 	}
 
-	res, err := p.Db.NamedExec(`UPDATE user SET is_deleted = :is_deleted WHERE id = :id`,
+	res, err := p.Db.NamedExec(`UPDATE "user" SET is_deleted = 1 WHERE id = :id AND is_deleted = 0`,
 		map[string]interface{}{
 			"id": userId,
 		})
@@ -90,7 +88,7 @@ func (p *User) DeleteById(userId int64) error {
 	}
 
 	if affectedRows == 0 {
-		return fmt.Errorf("missing user with id %d", userId)
+		return repository.MissingClientWithId
 	}
 
 	return nil

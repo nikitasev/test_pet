@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/go-redis/redis"
-	"go.opencensus.io/plugin/ocgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"net"
@@ -18,6 +17,7 @@ import (
 
 func main() {
 	logger, err := zap.NewDevelopment()
+	logger.Info("RUNNING SERVICE")
 	if err != nil {
 		panic(err)
 	}
@@ -28,28 +28,29 @@ func main() {
 		panic(err)
 	}
 
-	userDb, err := service.Connect(cfg.UserDb.Dsn, cfg.UserDb.Driver)
+	userDb, err := service.PostgresConnect(cfg.UserDb.Dsn)
 	if err != nil {
 		panic(err)
 	}
 	defer userDb.Close()
 	userRepo := persistence.NewUserRepository(userDb)
 
-	eventDb, err := service.Connect(cfg.EventDb.Dsn, cfg.EventDb.Driver)
+	eventDb, err := service.ClickHouseConnect(cfg.EventDb.Dsn)
 	if err != nil {
 		panic(err)
 	}
 	defer eventDb.Close()
 	eventRepo := persistence.NewEventLogStorage(eventDb)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%s", cfg.GrpcServer.Host, cfg.GrpcServer.Port))
+	lis, err := net.Listen("tcp", cfg.GrpcServer.HostPort)
 	if err != nil {
 		panic(err)
 	}
 	defer lis.Close()
 
-	client := redis.NewClient(&redis.Options{Addr: cfg.HostPort})
-	if err := client.Ping(); err != nil {
+	client := redis.NewClient(&redis.Options{Addr: cfg.Cache.HostPort})
+	if res, err := client.Ping().Result(); err != nil {
+		fmt.Println(res)
 		panic(err)
 	}
 	defer client.Close()
@@ -62,10 +63,10 @@ func main() {
 	kafkaConsumer := service.NewKafkaConsumer(cfg.EventQueue)
 	defer kafkaConsumer.Close()
 
-	grpcServer := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+	grpcServer := grpc.NewServer()
 	userapi.RegisterUserServiceServer(grpcServer, application.NewGrpcHandler(userRepo, eventLogger, userListCache, logger))
 
-	eventQueueHandler := application.NewEventQueueHandler(kafkaConsumer, eventRepo)
+	eventQueueHandler := application.NewEventQueueHandler(kafkaConsumer, eventRepo, logger)
 
 	queueStop := make(chan bool, 1)
 	grpcStop := make(chan error, 1)
