@@ -11,7 +11,10 @@ import (
 	"time"
 )
 
+const heapMaxSize = 1000
+
 type EventQueueHandler struct {
+	heap            []service.Message
 	consumer        *kafka.Reader
 	eventLogStorage *persistence.EventLog
 	logger          *zap.Logger
@@ -52,7 +55,13 @@ func (h *EventQueueHandler) handle() {
 		h.logger.Error("failed encoding message", zap.Error(err))
 		return
 	}
-	if err := h.eventLogStorage.Log(msg.UserId, msg.Time); err != nil {
-		h.logger.Error("failed logging event", zap.Error(err))
+	if h.heap == nil {
+		h.heap = make([]service.Message, 0)
+	}
+	h.heap = append(h.heap, msg)
+	if len(h.heap) >= heapMaxSize {
+		if err := h.eventLogStorage.Log(msg.UserId, msg.Time); err != nil {
+			h.logger.Error("failed logging event", zap.Error(err))
+		}
 	}
 }
