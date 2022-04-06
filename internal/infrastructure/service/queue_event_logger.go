@@ -11,7 +11,7 @@ type QueueEventLogger struct {
 	producer *kafka.Writer
 }
 
-type Message struct {
+type QueueItem struct {
 	UserId int64     `json:"user_id" `
 	Time   time.Time `json:"time"`
 }
@@ -21,7 +21,7 @@ func NewQueueEventLogger(producer *kafka.Writer) *QueueEventLogger {
 }
 
 func (l *QueueEventLogger) Log(userId int64) error {
-	msg := Message{UserId: userId, Time: time.Now()}
+	msg := QueueItem{UserId: userId, Time: time.Now()}
 	b, _ := json.Marshal(msg)
 
 	return l.producer.WriteMessages(context.Background(),

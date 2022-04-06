@@ -14,7 +14,7 @@ import (
 const heapMaxSize = 1000
 
 type EventQueueHandler struct {
-	heap            []service.Message
+	heap            []persistence.LogMessage
 	consumer        *kafka.Reader
 	eventLogStorage *persistence.EventLog
 	logger          *zap.Logger
@@ -32,6 +32,11 @@ func (h *EventQueueHandler) HandleQueue(cStop <-chan bool) {
 	for {
 		select {
 		case <-cStop:
+			if len(h.heap) > 0 {
+				if err := h.eventLogStorage.Log(h.heap); err != nil {
+					h.logger.Error("failed logging event", zap.Error(err))
+				}
+			}
 			return
 		default:
 			h.handle()
@@ -50,17 +55,17 @@ func (h *EventQueueHandler) handle() {
 		}
 		return
 	}
-	var msg service.Message
+	var msg service.QueueItem
 	if err := json.Unmarshal(m.Value, &msg); err != nil {
 		h.logger.Error("failed encoding message", zap.Error(err))
 		return
 	}
 	if h.heap == nil {
-		h.heap = make([]service.Message, 0)
+		h.heap = make([]persistence.LogMessage, 0)
 	}
-	h.heap = append(h.heap, msg)
+	h.heap = append(h.heap, persistence.NewLogMessage(msg.UserId, msg.Time))
 	if len(h.heap) >= heapMaxSize {
-		if err := h.eventLogStorage.Log(msg.UserId, msg.Time); err != nil {
+		if err := h.eventLogStorage.Log(h.heap); err != nil {
 			h.logger.Error("failed logging event", zap.Error(err))
 		}
 	}
